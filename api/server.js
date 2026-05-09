@@ -97,7 +97,7 @@ app.get("/trends", async (req, res) => {
   try {
     const category = req.query.category || "philippines";
 
-    const prompt = `What is ONE trending topic right now in the "${category}" category?
+    const prompt = `What is ONE trending positive topic right now in the "${category}" category?
 
 Respond ONLY with valid JSON in this exact format, no extra text:
 {
