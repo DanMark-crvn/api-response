@@ -93,28 +93,18 @@ app.get("/weather", async (req, res) => {
 });
 
 // ── /trends ───────────────────────────────────────────────────────────
-// Optional: pass ?category=tech|entertainment|sports|business|health
-// Optional: pass ?count=5 (max 10)
 app.get("/trends", async (req, res) => {
   try {
     const category = req.query.category || "philippines";
-    // const count    = Math.min(parseInt(req.query.count) || 5, 10);
 
-    // const prompt = `Current trends: ${count} trending topics right now in the "${category}" category.
-    const prompt = `Current trends: trending topics right now in the "${category}" category.
-      
-For each trend, provide:
-- title: short trend name (3-6 words)
-- summary: one sentence explanation (max 20 words)
-- momentum: "rising", "peak", or "declining"
+    const prompt = `What is ONE trending topic right now in the "${category}" category?
 
 Respond ONLY with valid JSON in this exact format, no extra text:
 {
   "category": "${category}",
-  "trends": [
-    { "rank": 1, "title": "...", "summary": "...", "momentum": "rising" },
-    ...
-  ]
+  "title": "...",
+  "summary": "one sentence explanation (max 20 words)",
+  "momentum": "rising" or "peak" or "declining"
 }`;
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -126,14 +116,14 @@ Respond ONLY with valid JSON in this exact format, no extra text:
       body: JSON.stringify({
         model: "llama-3.1-8b-instant",
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 600,
+        max_tokens: 150,
         temperature: 0.7
       })
     });
 
     const data = await response.json();
     const raw  = data?.choices?.[0]?.message?.content?.trim();
-    if (!raw) throw new Error("No trends returned from model");
+    if (!raw) throw new Error("No trend returned from model");
 
     const clean  = raw.replace(/^```(?:json)?\n?|```$/g, "").trim();
     const parsed = JSON.parse(clean);
