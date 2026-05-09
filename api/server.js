@@ -97,10 +97,10 @@ app.get("/weather", async (req, res) => {
 // Optional: pass ?count=5 (max 10)
 app.get("/trends", async (req, res) => {
   try {
-    const category = req.query.category || "general";
+    const category = req.query.category || "philippines";
     const count    = Math.min(parseInt(req.query.count) || 5, 10);
 
-    const prompt = `You are a trends analyst. List exactly ${count} trending topics right now in the "${category}" category.
+    const prompt = `Current trends: ${count} trending topics right now in the "${category}" category.
 For each trend, provide:
 - title: short trend name (3-6 words)
 - summary: one sentence explanation (max 20 words)
