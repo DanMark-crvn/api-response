@@ -253,7 +253,7 @@ function heatLevel(hiC) {
 // ── /datetime ─────────────────────────────────────────────────────────
 // Optional: ?timezone=Asia/Manila (default: UTC)
 app.get("/datetime", (req, res) => {
-  const timezone = req.query.timezone || "UTC";
+  const timezone = req.query.timezone || "UTC+8";
 
   try {
     const now = new Date();
