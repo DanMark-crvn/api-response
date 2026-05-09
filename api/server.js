@@ -251,11 +251,9 @@ function heatLevel(hiC) {
 }
 
 // ── /datetime ─────────────────────────────────────────────────────────
-// Optional: ?timezone=Asia/Manila (default: UTC)
 app.get("/datetime", (req, res) => {
-  const timezone = req.query.timezone || "UTC+8";
-
   try {
+    const timezone = "Asia/Manila";
     const now = new Date();
 
     const formatter = new Intl.DateTimeFormat("en-US", {
@@ -275,16 +273,16 @@ app.get("/datetime", (req, res) => {
 
     res.json({
       timezone,
-      iso:        now.toISOString(),
-      date:       `${parts.year}-${parts.month}-${parts.day}`,
-      time:       `${parts.hour}:${parts.minute}:${parts.second} ${parts.dayPeriod}`,
-      day:        now.toLocaleDateString("en-US", { timeZone: timezone, weekday: "long" }),
-      month:      now.toLocaleDateString("en-US", { timeZone: timezone, month: "long" }),
-      unix:       Math.floor(now.getTime() / 1000),
+      iso:   now.toISOString(),
+      date:  `${parts.year}-${parts.month}-${parts.day}`,
+      time:  `${parts.hour}:${parts.minute}:${parts.second} ${parts.dayPeriod}`,
+      day:   now.toLocaleDateString("en-US", { timeZone: timezone, weekday: "long" }),
+      month: now.toLocaleDateString("en-US", { timeZone: timezone, month: "long" }),
+      unix:  Math.floor(now.getTime() / 1000),
     });
 
   } catch (error) {
-    res.status(400).json({ error: `Invalid timezone: "${timezone}"` });
+    res.status(500).json({ error: error.message });
   }
 });
 
