@@ -103,7 +103,7 @@ Respond ONLY with valid JSON in this exact format, no extra text:
 {
   "category": "${category}",
   "title": "...",
-  "summary": "one sentence explanation (max 20 words)",
+  "summary": "one sentence explanation (max 10 words)",
   "momentum": "rising" or "peak" or "declining"
 }`;
 
