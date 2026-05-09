@@ -250,5 +250,44 @@ function heatLevel(hiC) {
   return "Normal";
 }
 
+// ── /datetime ─────────────────────────────────────────────────────────
+// Optional: ?timezone=Asia/Manila (default: UTC)
+app.get("/datetime", (req, res) => {
+  const timezone = req.query.timezone || "UTC";
+
+  try {
+    const now = new Date();
+
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      year:     "numeric",
+      month:    "2-digit",
+      day:      "2-digit",
+      hour:     "2-digit",
+      minute:   "2-digit",
+      second:   "2-digit",
+      hour12:   true,
+    });
+
+    const parts = Object.fromEntries(
+      formatter.formatToParts(now).map(({ type, value }) => [type, value])
+    );
+
+    res.json({
+      timezone,
+      iso:        now.toISOString(),
+      date:       `${parts.year}-${parts.month}-${parts.day}`,
+      time:       `${parts.hour}:${parts.minute}:${parts.second} ${parts.dayPeriod}`,
+      day:        now.toLocaleDateString("en-US", { timeZone: timezone, weekday: "long" }),
+      month:      now.toLocaleDateString("en-US", { timeZone: timezone, month: "long" }),
+      unix:       Math.floor(now.getTime() / 1000),
+    });
+
+  } catch (error) {
+    res.status(400).json({ error: `Invalid timezone: "${timezone}"` });
+  }
+});
+
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
