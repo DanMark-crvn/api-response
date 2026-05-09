@@ -1,10 +1,14 @@
 import express from "express";
 import cors from "cors";
+import Parser from "rss-parser";
+
 const app = express();
 app.use(cors());
 
 const GROQ_KEY = process.env.GROQ_KEY;
+const rssParser = new Parser();
 
+// ── /quote ────────────────────────────────────────────────────────────
 app.get("/quote", async (req, res) => {
   try {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -36,7 +40,7 @@ app.get("/quote", async (req, res) => {
   }
 });
 
-// ── /weather ─────────────────────────────────────────────────────────
+// ── /weather ──────────────────────────────────────────────────────────
 // Optional: pass ?lat=14.5&lon=121.0 to override IP geolocation
 app.get("/weather", async (req, res) => {
   try {
@@ -44,26 +48,22 @@ app.get("/weather", async (req, res) => {
     let lon = parseFloat(req.query.lon);
     let city = req.query.city || null;
 
-    // 1. Get coordinates from the caller's IP if not provided
     if (isNaN(lat) || isNaN(lon)) {
       const ip =
         req.headers["x-forwarded-for"]?.split(",")[0].trim() ||
         req.socket.remoteAddress;
 
-      // ip-api.com is free, no key required (45 req/min limit)
       const geoRes  = await fetch(`http://ip-api.com/json/${ip}?fields=lat,lon,city,regionName,country,status`);
       const geoData = await geoRes.json();
 
       if (geoData.status !== "success") {
         throw new Error(`Geolocation failed for IP: ${ip}`);
       }
-      lat = geoData.lat;
-      lon = geoData.lon;
+      lat  = geoData.lat;
+      lon  = geoData.lon;
       city = `${geoData.city}, ${geoData.regionName}, ${geoData.country}`;
     }
 
-    // 2. Fetch current temperature + relative humidity from Open-Meteo
-    //    (free, no API key needed)
     const weatherRes = await fetch(
       `https://api.open-meteo.com/v1/forecast` +
       `?latitude=${lat}&longitude=${lon}` +
@@ -75,19 +75,15 @@ app.get("/weather", async (req, res) => {
 
     const tempC    = current.temperature_2m;
     const humidity = current.relative_humidity_2m;
-
-    // 3. Calculate Heat Index (Steadman formula, Celsius)
-    //    Only meaningful when temp >= 27°C and humidity >= 40%
     const heatIndex = calcHeatIndex(tempC, humidity);
 
     res.json({
-      location:        city || `${lat}, ${lon}`,
-      coordinates:     { lat, lon },
-      temperature_c:   tempC,
-      humidity_pct:    humidity,
-      heat_index_c:    heatIndex,
-      heat_level:      heatLevel(heatIndex),   // e.g. "Caution", "Danger"
-      //location:        { lat, lon }
+      location:      city || `${lat}, ${lon}`,
+      coordinates:   { lat, lon },
+      temperature_c: tempC,
+      humidity_pct:  humidity,
+      heat_index_c:  heatIndex,
+      heat_level:    heatLevel(heatIndex),
     });
 
   } catch (error) {
@@ -96,13 +92,148 @@ app.get("/weather", async (req, res) => {
   }
 });
 
+// ── /trends ───────────────────────────────────────────────────────────
+// Optional: pass ?category=tech|entertainment|sports|business|health
+// Optional: pass ?count=5 (max 10)
+app.get("/trends", async (req, res) => {
+  try {
+    const category = req.query.category || "general";
+    const count    = Math.min(parseInt(req.query.count) || 5, 10);
+
+    const prompt = `You are a trends analyst. List exactly ${count} trending topics right now in the "${category}" category.
+For each trend, provide:
+- title: short trend name (3-6 words)
+- summary: one sentence explanation (max 20 words)
+- momentum: "rising", "peak", or "declining"
+
+Respond ONLY with valid JSON in this exact format, no extra text:
+{
+  "category": "${category}",
+  "trends": [
+    { "rank": 1, "title": "...", "summary": "...", "momentum": "rising" },
+    ...
+  ]
+}`;
+
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${GROQ_KEY}`
+      },
+      body: JSON.stringify({
+        model: "llama-3.1-8b-instant",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 600,
+        temperature: 0.7
+      })
+    });
+
+    const data = await response.json();
+    const raw  = data?.choices?.[0]?.message?.content?.trim();
+    if (!raw) throw new Error("No trends returned from model");
+
+    const clean  = raw.replace(/^```(?:json)?\n?|```$/g, "").trim();
+    const parsed = JSON.parse(clean);
+
+    res.json({
+      ...parsed,
+      generated_at: new Date().toISOString(),
+      source: "llm-generated"
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ── /news ─────────────────────────────────────────────────────────────
+// No API key needed — powered by Google News RSS
+// Optional: ?q=your+search+query   (default: "top news")
+// Optional: ?count=5               (default: 5, max: 20)
+// Optional: ?lang=en               (default: en)
+// Optional: ?country=US            (default: US)
+//
+// Category topic shortcuts via ?topic=:
+//   world, nation, business, technology, entertainment, sports, science, health
+app.get("/news", async (req, res) => {
+  try {
+    const count   = Math.min(parseInt(req.query.count) || 5, 20);
+    const lang    = req.query.lang    || "en";
+    const country = req.query.country || "US";
+
+    // Topic IDs map to Google News section feeds
+    const topicMap = {
+      world:         "CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx1YlY4U0FtVm5HZ0pWVXlnQVAB",
+      nation:        "CAAqIggKIhxDQkFTRHdvSkwyMHZNR1ptZHpWbUVnSmxiaWdBUAE",
+      business:      "CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtVm5HZ0pWVXlnQVAB",
+      technology:    "CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtVm5HZ0pWVXlnQVAB",
+      entertainment: "CAAqJggKIiBDQkFTRWdvSUwyMHZNREpxYW5RU0FtVm5HZ0pWVXlnQVAB",
+      sports:        "CAAqJggKIiBDQkFTRWdvSUwyMHZNRFp1ZEdvU0FtVm5HZ0pWVXlnQVAB",
+      science:       "CAAqJggKIiBDQkFTRWdvSUwyMHZNRFp0Y1RjU0FtVm5HZ0pWVXlnQVAB",
+      health:        "CAAqIQgKIhtDQkFTRGdvSUwyMHZNR3QwTlRFU0FtVm5LQUFQAVgA",
+    };
+
+    let feedUrl;
+    const topic = req.query.topic?.toLowerCase();
+
+    if (topic && topicMap[topic]) {
+      // Section/topic feed
+      feedUrl =
+        `https://news.google.com/rss/topics/${topicMap[topic]}` +
+        `?hl=${lang}-${country}&gl=${country}&ceid=${country}:${lang}`;
+    } else {
+      // Keyword search feed
+      const q = encodeURIComponent(req.query.q || "top news");
+      feedUrl =
+        `https://news.google.com/rss/search?q=${q}` +
+        `&hl=${lang}-${country}&gl=${country}&ceid=${country}:${lang}`;
+    }
+
+    const feed = await rssParser.parseURL(feedUrl);
+
+    const articles = feed.items.slice(0, count).map((item) => ({
+      title:        cleanTitle(item.title),
+      source:       item.source?.name ?? extractSource(item.title),
+      url:          item.link,
+      published_at: item.pubDate ?? null,
+      summary:      item.contentSnippet?.slice(0, 200) ?? null,
+    }));
+
+    res.json({
+      query:        req.query.q || req.query.topic || "top news",
+      total:        articles.length,
+      articles,
+      fetched_at:   new Date().toISOString(),
+      source:       "google-news-rss",
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ── News helpers ──────────────────────────────────────────────────────
+
+// Google News titles often look like: "Headline text - Source Name"
+// This strips the trailing " - Source Name" part
+function cleanTitle(raw = "") {
+  return raw.replace(/\s-\s[^-]+$/, "").trim();
+}
+
+// Fallback: extract source from the raw title if item.source is missing
+function extractSource(raw = "") {
+  const match = raw.match(/\s-\s([^-]+)$/);
+  return match ? match[1].trim() : "Unknown";
+}
+
 // ── Heat index helpers ────────────────────────────────────────────────
 function calcHeatIndex(tempC, rh) {
-  // Convert to °F for the standard Rothfusz regression
   const T = tempC * 9 / 5 + 32;
   const H = rh;
 
-  // Simple estimate (valid for most ranges)
   let HI =
     -42.379
     + 2.04901523  * T
@@ -114,10 +245,8 @@ function calcHeatIndex(tempC, rh) {
     + 0.00085282  * T * H * H
     - 0.00000199  * T * T * H * H;
 
-  // Below 80°F the formula is unreliable; just return actual temp
   if (T < 80) HI = T;
 
-  // Convert back to °C, round to 1 decimal
   return Math.round((HI - 32) * 5 / 9 * 10) / 10;
 }
 
@@ -128,7 +257,6 @@ function heatLevel(hiC) {
   if (hiC >= 27) return "Caution";
   return "Normal";
 }
-
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
