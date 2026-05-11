@@ -64,6 +64,24 @@ app.get("/weather", async (req, res) => {
       city = `${geoData.city}, ${geoData.regionName}, ${geoData.country}`;
     }
 
+    // ADD THIS right after the closing brace of the if block:
+    if (!city) {
+      try {
+        const geoRes = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+          { headers: { "User-Agent": "your-app-name/1.0" } }
+        );
+        const geoData = await geoRes.json();
+        const addr = geoData.address;
+        city =
+          addr.city || addr.town || addr.village || addr.county ||
+          geoData.display_name?.split(",")[0] ||
+          `${lat}, ${lon}`;
+      } catch {
+        city = `${lat}, ${lon}`;
+      }
+    }
+
     const weatherRes = await fetch(
       `https://api.open-meteo.com/v1/forecast` +
       `?latitude=${lat}&longitude=${lon}` +
