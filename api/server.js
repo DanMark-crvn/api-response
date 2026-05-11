@@ -53,15 +53,22 @@ app.get("/weather", async (req, res) => {
         req.headers["x-forwarded-for"]?.split(",")[0].trim() ||
         req.socket.remoteAddress;
 
-      const geoRes  = await fetch(`http://ip-api.com/json/${ip}?fields=lat,lon,city,regionName,country,status`);
+      // const geoRes  = await fetch(`http://ip-api.com/json/${ip}?fields=lat,lon,city,regionName,country,status`);
+      const geoRes = await fetch(`https://ipapi.co/${ip}/json/`);
       const geoData = await geoRes.json();
 
-      if (geoData.status !== "success") {
+      // if (geoData.status !== "success") {
+      //   throw new Error(`Geolocation failed for IP: ${ip}`);
+      // }
+      if (geoData.error) {
         throw new Error(`Geolocation failed for IP: ${ip}`);
       }
-      lat  = geoData.lat;
-      lon  = geoData.lon;
-      city = `${geoData.city}, ${geoData.regionName}, ${geoData.country}`;
+      // lat  = geoData.lat;
+      // lon  = geoData.lon;
+      // city = `${geoData.city}, ${geoData.regionName}, ${geoData.country}`;
+      lat  = geoData.latitude;
+      lon  = geoData.longitude;
+      city = `${geoData.city}, ${geoData.region}, ${geoData.country_name}`;
     }
 
     // ADD THIS right after the closing brace of the if block:
