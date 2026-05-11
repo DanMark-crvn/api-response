@@ -44,47 +44,50 @@ app.get("/quote", async (req, res) => {
 // Optional: pass ?lat=14.5&lon=121.0 to override IP geolocation
 app.get("/weather", async (req, res) => {
   try {
-    // let lat = parseFloat(req.query.lat);
-    // let lon = parseFloat(req.query.lon);
-    // let city = req.query.city || null;
-    // Hardcode your location instead of IP lookup
-    lat  = 14.3417;
-    lon  = 121.0817;
-    city = "Biñan, Laguna, Philippines";
+    let lat = parseFloat(req.query.lat);
+    let lon = parseFloat(req.query.lon);
+    let city = req.query.city || null;
 
+    // if (isNaN(lat) || isNaN(lon)) {
+    //   const ip =
+    //     req.headers["x-forwarded-for"]?.split(",")[0].trim() ||
+    //     req.socket.remoteAddress;
+
+    //   const geoRes  = await fetch(`http://ip-api.com/json/${ip}?fields=lat,lon,city,regionName,country,status`);
+    //   const geoData = await geoRes.json();
+
+    //   if (geoData.status !== "success") {
+    //     throw new Error(`Geolocation failed for IP: ${ip}`);
+    //   }
+    //   lat  = geoData.lat;
+    //   lon  = geoData.lon;
+    //   city = `${geoData.city}, ${geoData.regionName}, ${geoData.country}`;      
+    // }
+
+    //Hardcoded
     if (isNaN(lat) || isNaN(lon)) {
-      const ip =
-        req.headers["x-forwarded-for"]?.split(",")[0].trim() ||
-        req.socket.remoteAddress;
-
-      const geoRes  = await fetch(`http://ip-api.com/json/${ip}?fields=lat,lon,city,regionName,country,status`);
-      const geoData = await geoRes.json();
-
-      if (geoData.status !== "success") {
-        throw new Error(`Geolocation failed for IP: ${ip}`);
-      }
-      lat  = geoData.lat;
-      lon  = geoData.lon;
-      city = `${geoData.city}, ${geoData.regionName}, ${geoData.country}`;      
+      lat  = 14.3417;
+      lon  = 121.0817;
+      city = "Biñan, Laguna, Philippines";
     }
 
     // ADD THIS right after the closing brace of the if block:
-    if (!city) {
-      try {
-        const geoRes = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
-          { headers: { "User-Agent": "your-app-name/1.0" } }
-        );
-        const geoData = await geoRes.json();
-        const addr = geoData.address;
-        city =
-          addr.city || addr.town || addr.village || addr.county ||
-          geoData.display_name?.split(",")[0] ||
-          `${lat}, ${lon}`;
-      } catch {
-        city = `${lat}, ${lon}`;
-      }
-    }
+    // if (!city) {
+    //   try {
+    //     const geoRes = await fetch(
+    //       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+    //       { headers: { "User-Agent": "your-app-name/1.0" } }
+    //     );
+    //     const geoData = await geoRes.json();
+    //     const addr = geoData.address;
+    //     city =
+    //       addr.city || addr.town || addr.village || addr.county ||
+    //       geoData.display_name?.split(",")[0] ||
+    //       `${lat}, ${lon}`;
+    //   } catch {
+    //     city = `${lat}, ${lon}`;
+    //   }
+    // }
 
     const weatherRes = await fetch(
       `https://api.open-meteo.com/v1/forecast` +
