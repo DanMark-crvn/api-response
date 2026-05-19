@@ -322,6 +322,50 @@ app.get("/datetime", (req, res) => {
   }
 });
 
+// ── /weather/locate ───────────────────────────────────────────────────
+// Open this in a browser to get exact GPS location then call /weather
+app.get("/weather/locate", (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html>
+<head>
+  <title>Weather Locator</title>
+  <style>
+    body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f0f4f8; }
+    pre  { background: #1e1e1e; color: #d4d4d4; padding: 20px; border-radius: 8px; max-width: 500px; width: 90%; overflow: auto; }
+    p    { color: #555; }
+  </style>
+</head>
+<body>
+  <h2>📍 Getting your exact location...</h2>
+  <p id="status">Requesting GPS permission...</p>
+  <pre id="result"></pre>
+
+  <script>
+    if (!navigator.geolocation) {
+      document.getElementById("status").textContent = "Geolocation not supported by your browser.";
+    } else {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude, accuracy } = position.coords;
+          document.getElementById("status").textContent =
+            "Got location! Accuracy: ~" + Math.round(accuracy) + "m. Fetching weather...";
+
+          const res  = await fetch("/weather?lat=" + latitude + "&lon=" + longitude);
+          const data = await res.json();
+          document.getElementById("result").textContent = JSON.stringify(data, null, 2);
+          document.getElementById("status").textContent = "✅ Done! (" + latitude.toFixed(5) + ", " + longitude.toFixed(5) + ")";
+        },
+        (err) => {
+          document.getElementById("status").textContent = "❌ Location denied: " + err.message;
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }
+  </script>
+</body>
+</html>`);
+});
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
