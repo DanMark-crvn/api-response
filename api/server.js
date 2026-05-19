@@ -64,22 +64,28 @@ app.get("/weather", async (req, res) => {
     //   city = `${geoData.city}, ${geoData.regionName}, ${geoData.country}`;      
     // }
 
+    // if (isNaN(lat) || isNaN(lon)) {
+    //   const ip =
+    //     req.query.ip ||
+    //     req.headers["x-forwarded-for"]?.split(",")[0].trim() ||
+    //     req.socket.remoteAddress;
+    
+    //   const geoRes  = await fetch(`http://ip-api.com/json/${ip}?fields=lat,lon,city,regionName,country,status`);
+    //   const geoData = await geoRes.json();
+    
+    //   if (geoData.status !== "success") {
+    //     return res.status(400).json({ error: `Could not determine location for IP: ${ip}` });
+    //   }
+    
+    //   lat  = geoData.lat;
+    //   lon  = geoData.lon;
+    //   city = `${geoData.city}, ${geoData.regionName}, ${geoData.country}`;
+    // }
+
     if (isNaN(lat) || isNaN(lon)) {
-      const ip =
-        req.query.ip ||
-        req.headers["x-forwarded-for"]?.split(",")[0].trim() ||
-        req.socket.remoteAddress;
-    
-      const geoRes  = await fetch(`http://ip-api.com/json/${ip}?fields=lat,lon,city,regionName,country,status`);
-      const geoData = await geoRes.json();
-    
-      if (geoData.status !== "success") {
-        return res.status(400).json({ error: `Could not determine location for IP: ${ip}` });
-      }
-    
-      lat  = geoData.lat;
-      lon  = geoData.lon;
-      city = `${geoData.city}, ${geoData.regionName}, ${geoData.country}`;
+      lat  = 14.3417;
+      lon  = 121.0817;
+      city = "Biñan, Laguna, Philippines";
     }
 
     // ADD THIS right after the closing brace of the if block:
